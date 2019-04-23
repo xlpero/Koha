@@ -466,7 +466,7 @@ foreach my $branchcode (@branches) {
 
     $verbose and warn sprintf "branchcode : '%s' using %s\n", $branchcode, $admin_email_address;
 
-    my $sth2 = $dbh->prepare( <<"END_SQL" );
+    my $sql2 = <<"END_SQL";
 SELECT biblio.*, items.*, issues.*, biblioitems.itemtype, branchname
   FROM issues,items,biblio, biblioitems, branches b
   WHERE items.itemnumber=issues.itemnumber
@@ -474,10 +474,16 @@ SELECT biblio.*, items.*, issues.*, biblioitems.itemtype, branchname
     AND b.branchcode = items.homebranch
     AND biblio.biblionumber   = biblioitems.biblionumber
     AND issues.borrowernumber = ?
-    AND issues.branchcode = ?
     AND items.itemlost = 0
     AND TO_DAYS($date)-TO_DAYS(issues.date_due) >= 0
 END_SQL
+
+    if($owning_library) {
+        $sql2 .= ' AND items.homebranch = ? ';
+    } else {
+        $sql2 .= ' AND issues.branchcode = ? ';
+    }
+    my $sth2 = $dbh->prepare($sql2);
 
     my $query = "SELECT * FROM overduerules WHERE delay1 IS NOT NULL AND branchcode = ? ";
     $query .= " AND categorycode IN (".join( ',' , ('?') x @myborcat ).") " if (@myborcat);
